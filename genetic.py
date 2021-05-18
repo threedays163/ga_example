@@ -26,9 +26,6 @@ class GeneticOptimize:
         # iter times
         self.maxiter = maxiter
 
-        self.room2AllSpace = {}
-
-        self.class2AllSpace = {}
 
     def checkIsBetter(self, p):
         roomSet = set()
@@ -59,21 +56,6 @@ class GeneticOptimize:
             roomRange: int, number of classrooms.
         """
         self.population = []
-
-        for i in range(Schedule.roomRange):
-            mySet = []
-            for x in range(Schedule.dayInWeek):
-                for y in range(Schedule.slotInDay):
-                    mySet.append([x+1, y+1])
-            self.room2AllSpace[i + 1] = mySet
-
-        classSet = set()
-        for i in schedules:
-            if i.classId not in classSet:
-                classSet.add(i.classId)
-
-        # for i in classSet:
-
 
         while len(self.population) < self.popsize:
             entity = []
@@ -117,41 +99,29 @@ class GeneticOptimize:
 
 
     def dealConflict(self, entity, conflict1, conflict2, conflict3):
-        # roomId2UsedSpace = {}  # roomId->已使用坑的二维矩阵
+        roomId2UsedSpace = {}  # roomId->已使用坑的二维矩阵
         roomId2FreeSpace = {}  # roomId->记录可使用坑位的数组
 
-        ####### 处理教室冲突
         # 记录所有教室
-        roomId2AllSpace = copy.deepcopy(self.room2AllSpace)
+        for i in range(Schedule.roomRange):
+            s = [[0 for i in range(Schedule.slotInDay)] for i in range(Schedule.dayInWeek)]
+            roomId2UsedSpace[i + 1] = s
 
-        # 收集未被使用的槽
+        # 收集各个教室中已经占用的坑
         for i in entity:
-            temSet = roomId2AllSpace.get(i.roomId)
-            temItem =[i.weekDay, i.slot]
-            if temItem in temSet:
-                temSet.remove(temItem)
-
-        roomId2FreeSpace = roomId2AllSpace
-
-        # 教室在同一时间只能上一节课
-        if len(conflict1) > 0:
-            self.fixConflict(conflict1, entity, roomId2FreeSpace)
-
-        ######处理班级时间冲突
-
-
-
-        ######处理老师时间冲突
+            s = roomId2UsedSpace.get(i.roomId)
+            s[i.weekDay - 1][i.slot - 1] = 1
+            roomId2UsedSpace[i.roomId] = s
 
         # 收集各个教室中还能用的坑
-        # for roomId in roomId2UsedSpace.keys():
-        #     usedMatrix = roomId2UsedSpace[roomId]
-        #     freeSpace = []
-        #     for i in range(Schedule.dayInWeek):
-        #         for j in range(Schedule.slotInDay):
-        #             if usedMatrix[i][j] == 0:
-        #                 freeSpace.append([i, j])
-        #     roomId2FreeSpace[roomId] = freeSpace
+        for roomId in roomId2UsedSpace.keys():
+            usedMatrix = roomId2UsedSpace[roomId]
+            freeSpace = []
+            for i in range(Schedule.dayInWeek):
+                for j in range(Schedule.slotInDay):
+                    if usedMatrix[i][j] == 0:
+                        freeSpace.append([i, j])
+            roomId2FreeSpace[roomId] = freeSpace
 
         # 老师在同一时间只能上一节课
         if len(conflict3) > 0:
@@ -161,30 +131,28 @@ class GeneticOptimize:
         if len(conflict2) > 0:
             self.fixConflict(conflict2, entity, roomId2FreeSpace)
 
-
+        # 教室在同一时间只能上一节课
+        if len(conflict1) > 0:
+            self.fixConflict(conflict1, entity, roomId2FreeSpace)
         return entity
 
     def fixConflict(self, conflictList, entity, roomId2FreeSpace):
         for item in conflictList:
-            ## 从两个冲突的对象中，随机选择一个进行冲突处理
-            fixIndex = np.random.randint(0,2,1)[0]
-            conflictItem = entity[item[fixIndex]]
-            # randomRoomId = np.random.randint(1, Schedule.roomRange + 1, 1)[0]
-            # availableRoomId = self.getAvailableRoom(roomId2FreeSpace, randomRoomId, 0)
-            # 优先教室不变，选择可用的时间插槽，如果没有，就换教室
-            availableRoomId = self.getAvailableRoom(roomId2FreeSpace, conflictItem.roomId, 0)
+            conflictItem = entity[item[1]]
+            randomRoomId = np.random.randint(1, Schedule.roomRange + 1, 1)[0]
+            availableRoomId = self.getAvailableRoom(roomId2FreeSpace, randomRoomId, 0)
+            # availableRoomId = self.getAvailableRoom(roomId2FreeSpace, conflictItem.roomId, 0)
             if availableRoomId == -1:
                 print('没有可用的教室可用')
                 exit(-1)
             array = roomId2FreeSpace[availableRoomId]
-
             # 从可用列表中随机获取一个可用的坑
             availableIndex = np.random.randint(0, len(array), 1)[0]
-            item = array[availableIndex]
-            conflictItem.weekDay = item[0]
-            conflictItem.slot = item[1]
+            availItem = array[availableIndex]
+            conflictItem.weekDay = availItem[0] + 1
+            conflictItem.slot = availItem[1] + 1
             # 可用列表上移除这个坑
-            array.remove(item)
+            array.remove(availItem)
 
     def getAvailableRoom(self, roomId2FreeSpace, nowroomId, deep):
         if deep == Schedule.roomRange:
