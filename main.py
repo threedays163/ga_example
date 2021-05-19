@@ -57,10 +57,9 @@ def visualizationAll(res):
         item = className2Schedule.popitem()[1]
         vis(item)
 
-def visualization():
+def visualization(res):
     # visualization
     className2Schedule = {}
-    vis_res = []
     for r in res:
         s = className2Schedule.get(r.classId)
         if s is None:
@@ -76,30 +75,58 @@ def visualization():
 
 
 
-def compareWithSameInit(totalFitness1,totalFitness2):
-    global i, res, maxBestFitness1, maxBestFitness2
-    for i in range(loopCount):
-        # ga.population = origin
-        print("改进前")
-        commonGA = CommonGeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
-        commonGA.init_population(schedules, CommonSchedule.roomRange)
-        res, bestFitness1 = commonGA.evolution()
-        print("改前适应值：" + str(bestFitness1))
-        totalFitness1 += bestFitness1
-        if bestFitness1 > maxBestFitness1:
-            maxBestFitness1 = bestFitness1
-        visualizationAll(res)
+def compareWithSameInit():
+    totalFitness1 = 0.0
+    totalFitness2 = 0.0
+    maxBestFitness1 = 0.0
+    maxBestFitness2 = 0.0
 
-        print("改进后")
-        ga = GeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
-        ga.setPopulation(commonGA.getPopulation())
-        res2, bestFitness2 = ga.evolution()
-        print("改后适应值：" + str(bestFitness2))
-        totalFitness2 += bestFitness2
-        if bestFitness2 > maxBestFitness2:
-            maxBestFitness2 = bestFitness2
-        visualizationAll(res2)
-    return totalFitness1, totalFitness2
+    totalTime1 = 0.0
+    totalTime2 = 0.0
+    for i in range(loopCount):
+        population, maxBestFitness1, totalFitness1, totalTime1 \
+            = CommonGaCal(i, maxBestFitness1, totalFitness1,totalTime1)
+
+        maxBestFitness2, totalFitness2, totalTime2\
+            = myGaCal(population, i, maxBestFitness2, totalFitness2, totalTime2)
+    return totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2
+
+
+def myGaCal(population, i, maxBestFitness2, totalFitness2, totalTime2):
+    print("改进后")
+    startTime2 = time.time()
+    ga = GeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
+    ga.setPopulation(population)
+    res2, bestFitness2 = ga.evolution()
+    print("改后适应值：" + str(bestFitness2))
+    totalFitness2 += bestFitness2
+    if bestFitness2 > maxBestFitness2:
+        maxBestFitness2 = bestFitness2
+    endTime2 = time.time()
+    wasteTime2 = endTime2 - startTime2
+    totalTime2 += wasteTime2
+    print("第" + str(i) + "次，2耗时：" + str(wasteTime2))
+    visualizationAll(res2)
+    return maxBestFitness2, totalFitness2, totalTime2
+
+
+def CommonGaCal(i, maxBestFitness1, totalFitness1, totalTime1):
+    print("改进前")
+    startTime1 = time.time()
+    commonGA = CommonGeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
+    commonGA.init_population(schedules, CommonSchedule.roomRange)
+    pupulation = copy.deepcopy(commonGA.population)
+    res, bestFitness1 = commonGA.evolution()
+    print("改前适应值：" + str(bestFitness1))
+    totalFitness1 += bestFitness1
+    if bestFitness1 > maxBestFitness1:
+        maxBestFitness1 = bestFitness1
+    endTime1 = time.time()
+    wasteTime1 = endTime1 - startTime1
+    totalTime1 += wasteTime1
+    print("第" + str(i) + "次，1耗时：" + str(wasteTime1))
+    visualizationAll(res)
+    return pupulation, maxBestFitness1, totalFitness1, totalTime1
 
 
 def compare():
@@ -111,7 +138,6 @@ def compare():
     totalTime1=0.0
     totalTime2=0.0
     for i in range(loopCount):
-        # ga.population = origin
         # print("改进前")
         # startTime1 = time.time()
         # commonGA = CommonGeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
@@ -130,7 +156,7 @@ def compare():
         print("改进后")
         startTime2 = time.time()
         ga = GeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
-        ga.init_population(schedules, CommonSchedule.roomRange)
+        ga.init_population(schedules, Schedule.roomRange)
         res2, bestFitness2 = ga.evolution()
         print("改后适应值：" + str(bestFitness2))
         totalFitness2 += bestFitness2
@@ -147,42 +173,25 @@ maxBestFitness1 = 0.0
 
 maxBestFitness2 = 0.0
 
-if __name__ == '__main__':
 
-    popSize = 5
-
-    schedules = []
-
-    loopCount = 1
-
-
-    avgFitness1 = 0.0
-    totalFitness1 = 0.0
-
-
-    avgFitness2 = 0.0
-    totalFitness2 = 0.0
-
+def init_data():
     # add schedule  课程，班级，老师
     ## 测试数据，一共5个班，每个班6门课，前3个课，每门课每周上3次，第四门课每周上2次，最后两门课一周上1次，每门课3个老师
     ## 5个班
     ## 6门课
     ## 3门课上3次，3门课上2次， 共15次课
     ## 每门课有2个老师，共12个老师  5*14=60次课，
-
     classCount = 10
     courseCount = 6
     teacherCount = 30
-
     preTeacherInCourse = teacherCount / courseCount
-
     for i in range(classCount):  # 班级
         for j in range(courseCount):  # 课程
             classId = 2101 + i
             courseId = 100 + j
             teacherId = 10000 + 10 * j
 
-            teacherId += i % preTeacherInCourse + 1
+            teacherId += int(i % preTeacherInCourse + 1)
 
             if j < 3:  ##前3门课，每周上3次
                 schedules.append(Schedule(classId, courseId, teacherId))
@@ -191,24 +200,36 @@ if __name__ == '__main__':
             if j >= 3:
                 schedules.append(Schedule(classId, courseId, teacherId))
                 schedules.append(Schedule(classId, courseId, teacherId))
-
     print('一周一共有' + str(len(schedules)) + '节课要上')
-
-    Schedule.crossRetryMaxCount=len(schedules)
-    CommonSchedule.crossRetryMaxCount=len(schedules)
-
+    Schedule.crossRetryMaxCount = len(schedules)
+    CommonSchedule.crossRetryMaxCount = len(schedules)
+    # 收集老师
     teacherArray = set()
     for i in schedules:
         teacherArray.add(i.teacherId)
-
     print('不同老师' + str(len(teacherArray)) + '个')
     ## 收集班级
     classNameSet = set()
-
     for item in schedules:
         classNameSet.add(item.classId)
+    print('不同班级' + str(len(classNameSet)) + '个')
 
-    # totalFitness1, totalFitness2 = compareWithSameInit(totalFitness1,totalFitness2)
+
+if __name__ == '__main__':
+
+    popSize = 20
+    loopCount = 5
+
+    schedules = []
+
+    avgFitness1 = 0.0
+    totalFitness1 = 0.0
+    avgFitness2 = 0.0
+    totalFitness2 = 0.0
+
+    init_data()
+
+    # totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2 = compareWithSameInit()
 
     totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2 = compare()
 

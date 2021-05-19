@@ -21,6 +21,12 @@ class Schedule:
     ## 变异后出现冲突最大重试次数
     mutateRetryMaxCount = 40
 
+    className = 'class'
+
+    roomName = 'room'
+
+    teacherName = 'teacher'
+
     """Class Schedule.
         classId:  班级ID
         courseId: 课程ID
@@ -240,25 +246,81 @@ k4 = 400
 def conflict(p):
     n = len(p)
     conflictCount = 0
-    conflict1 = []
-    conflict2 = []
-    conflict3 = []
+
+    ## 已使用的插槽 set结构 (weekDay,slot,'room'或'class'或'teacher',roomId/classId/teacherId)
+    usedSpace = set()
+
+    ## 已冲突的插槽 keyValue结构 key=(weekDay,slot,'room'或'class'或'teacher'或'count')   value=set(i,j,k....)
+    space2Conflict = {}
+
     for i in range(0, n - 1):
         for j in range(i + 1, n):
+            addToUsedSet(p[i], usedSpace)
+            addToUsedSet(p[j], usedSpace)
             if p[i].weekDay == p[j].weekDay and p[i].slot == p[j].slot:
+                # usedSpace.add((p[i].weekDay, p[i].slot, 'room', p[i].roomId))
+                # usedSpace.add((p[i].weekDay, p[i].slot, 'class', p[i].classId))
+                # usedSpace.add((p[i].weekDay, p[i].slot, 'teacher', p[i].teacherId))
+
+                count = 0
+
                 # 教室在同一时间只能上一节课
                 if p[i].roomId == p[j].roomId:
-                    conflict1.append([i, j])
+                    #conflict1.append([i, j])
                     conflictCount += 1
+                    count += 1
+
+                    key = (p[i].weekDay, p[i].slot, 'room')
+                    putIntoConflictMap(i, j, key, space2Conflict)
+                # else:
+                #     usedSpace.add((p[j].weekDay, p[j].slot, 'room', p[j].roomId))
+
                 # 班级在一个时间只能上一节课
                 if p[i].classId == p[j].classId:
-                    conflict2.append([i, j])
+                    #conflict2.append([i, j])
                     conflictCount += 1
+                    count += 1
+
+                    key = (p[i].weekDay, p[i].slot, 'class')
+                    putIntoConflictMap(i, j, key, space2Conflict)
+                # else:
+                #     usedSpace.add((p[j].weekDay, p[j].slot, 'class', p[j].classId))
+
                 # 老师在同一时间只能上一节课
                 if p[i].teacherId == p[j].teacherId:
-                    conflict3.append([i, j])
+                    #conflict3.append([i, j])
                     conflictCount += 1
-    return conflictCount, conflict1, conflict2, conflict3
+                    count += 1
+
+                    key = (p[i].weekDay, p[i].slot, 'teacher')
+                    putIntoConflictMap(i, j, key, space2Conflict)
+                # else:
+                #     usedSpace.add((p[j].weekDay, p[j].slot, 'teacher', p[j].teacherId))
+
+                if count > 0:
+                    key = (p[i].weekDay, p[i].slot, 'count')
+                    space2Conflict[key] = count
+            # else:
+            #     addToUsedSet(p[i], usedSpace)
+            #     addToUsedSet(p[j], usedSpace)
+
+    return conflictCount, usedSpace, space2Conflict
+
+
+def putIntoConflictMap(i, j, key, space2Conflict):
+    value = space2Conflict.get(key)
+    if value is None:
+        value = set()
+
+    value.add(i)
+    value.add(j)
+    space2Conflict[key] = value
+
+
+def addToUsedSet(item, usedSpace):
+    usedSpace.add((item.weekDay, item.slot, 'teacher', item.teacherId))
+    usedSpace.add((item.weekDay, item.slot, 'class', item.classId))
+    usedSpace.add((item.weekDay, item.slot, 'room', item.roomId))
 
 
 def schedule_cost(population, popSize):
