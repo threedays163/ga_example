@@ -14,7 +14,7 @@ class CommonGeneticOptimize:
         maxiter: 最大迭代次数
     """
 
-    maxAppearCount = 50
+    maxAppearCount = 40
 
     def __init__(self, popSize=20, mutprob=0.2, crossProb=0.9, maxiter=500):
         # size of population

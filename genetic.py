@@ -14,9 +14,9 @@ class GeneticOptimize:
         maxiter: 最大迭代次数
     """
 
-    maxAppearCount = 50
+    maxAppearCount = 40
 
-    printConflictDetail = True
+    printConflictDetail = False
 
     def __init__(self, popSize=20, mutprob=0.2, crossProb=0.9, maxiter=500):
         # size of population
@@ -138,7 +138,15 @@ class GeneticOptimize:
     def getPopulation(self):
         return self.population
 
-    def setPopulation(self,population):
+    def setPopulation(self,population,schedules):
+        self.initAllSpace()
+
+        for item in schedules:
+            self.classIdSet.add(item.classId)
+            self.teacherIdSet.add(item.teacherId)
+
+        self.classCount = len(self.classIdSet)
+        self.teacherCount = len(self.teacherIdSet)
         self.population=population
         return
 
@@ -146,7 +154,8 @@ class GeneticOptimize:
     # space2Conflict keyValue结构 key=(weekDay,slot,'room'或'class'或'teacher'或'count')   value=set(i,j,k....)
     def dealConflict2(self, entity, conflictCount, usedSpace, space2Conflict):
 
-        for roomId in range(1, Schedule.roomRange+1):
+        # 每一个冲突处理完毕后，需要重置可用列表，防止无解的占用了位置没有释放
+        for roomId in range(1, Schedule.roomRange + 1):
             self.room2Space[roomId] = copy.deepcopy(self.spaceSet)
 
         for classId in self.classIdSet:
@@ -155,24 +164,31 @@ class GeneticOptimize:
         for teacherId in self.teacherIdSet:
             self.teacher2Space[teacherId] = copy.deepcopy(self.spaceSet)
 
-        self.printSplitStart('beginDeal')
+
         ## 根据已经占用的插槽，生成未被使用的插槽 self.room2Space, self.class2Space, self.teacher2Space
         for item in usedSpace:
             spaceKey = (item[0],item[1])
             spaceType = item[2]
+
             if spaceType == 'room':
                 roomId = item[3]
-                self.room2Space[roomId].remove(spaceKey)
+                try:
+                    self.room2Space[roomId].remove(spaceKey)
+                except KeyError:
+                    print("error key", roomId)
             elif spaceType == 'class':
                 classId = item[3]
-                self.class2Space[classId].remove(spaceKey)
+                try:
+                    self.class2Space[classId].remove(spaceKey)
+                except KeyError:
+                    print("error key", classId)
             elif spaceType == 'teacher':
                 teacherId = item[3]
                 try:
                     self.teacher2Space[teacherId].remove(spaceKey)
                 except KeyError:
                     print("error key", teacherId)
-
+        self.printSplitStart('beginDeal')
         for item in space2Conflict.keys():
             # item = (weekDay,slot,'room'或'class'或'teacher')
 
@@ -194,7 +210,6 @@ class GeneticOptimize:
                 randonIndex = int(np.random.randint(0,len(copyConflicteSet), 1)[0])
                 changeIndex = copyConflicteSet[randonIndex]
                 changeEntity = entity[changeIndex]
-                self.printSplitStart('')
                 if type == 'room':
                     # 处理教室冲突
                     self.printSplitStart('fix_room')
@@ -476,7 +491,7 @@ class GeneticOptimize:
 
     ## 编译概率
     def mutateprobFun(self, n):
-        return 1 / (2 * (1 + math.exp(n / 400)))
+        return 1 / (2 * (1 + math.exp(4 * n / self.maxiter)))
 
     ## 变异操作
     # def mutate(self, eiltePopulation, roomRange, index):

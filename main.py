@@ -96,7 +96,7 @@ def myGaCal(population, i, maxBestFitness2, totalFitness2, totalTime2):
     print("改进后")
     startTime2 = time.time()
     ga = GeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
-    ga.setPopulation(population)
+    ga.setPopulation(population,schedules)
     res2, bestFitness2 = ga.evolution()
     print("改后适应值：" + str(bestFitness2))
     totalFitness2 += bestFitness2
@@ -138,20 +138,20 @@ def compare():
     totalTime1=0.0
     totalTime2=0.0
     for i in range(loopCount):
-        # print("改进前")
-        # startTime1 = time.time()
-        # commonGA = CommonGeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
-        # commonGA.init_population(schedules, CommonSchedule.roomRange)
-        # res, bestFitness1 = commonGA.evolution()
-        # print("改前适应值：" + str(bestFitness1))
-        # totalFitness1 += bestFitness1
-        # if bestFitness1 > maxBestFitness1:
-        #     maxBestFitness1 = bestFitness1
-        # endTime1=time.time()
-        # wasteTime1=endTime1 - startTime1
-        # totalTime1 += wasteTime1
-        # print("第" + str(i) + "次，1耗时：" + str(wasteTime1))
-        # visualizationAll(res)
+        print("改进前")
+        startTime1 = time.time()
+        commonGA = CommonGeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
+        commonGA.init_population(schedules, CommonSchedule.roomRange)
+        res, bestFitness1 = commonGA.evolution()
+        print("改前适应值：" + str(bestFitness1))
+        totalFitness1 += bestFitness1
+        if bestFitness1 > maxBestFitness1:
+            maxBestFitness1 = bestFitness1
+        endTime1=time.time()
+        wasteTime1=endTime1 - startTime1
+        totalTime1 += wasteTime1
+        print("第" + str(i) + "次，1耗时：" + str(wasteTime1))
+        visualizationAll(res)
 
         print("改进后")
         startTime2 = time.time()
@@ -217,7 +217,7 @@ def init_data():
 
 if __name__ == '__main__':
 
-    popSize = 20
+    popSize = 50
     loopCount = 5
 
     schedules = []
