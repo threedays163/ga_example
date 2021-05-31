@@ -2,11 +2,11 @@ import copy
 import numpy as np
 import math
 
-import schedule
-from schedule import schedule_cost, Schedule, conflict
+import adaptive_schedule
+from adaptive_schedule import schedule_cost, AdaptiveSchedule, conflict, fitnessFun
 
 
-class GeneticOptimize:
+class AdaptiveGeneticOptimize:
     """Genetic Algorithm.
         popsize: 初始种群数量
         mutprob: 变异概率
@@ -15,6 +15,11 @@ class GeneticOptimize:
     """
 
     maxAppearCount = 400
+
+    Pw1=0.9
+    Pw2=0.75
+    Pk1=0.2
+    Pk2=0.01
 
     printConflictDetail = False
 
@@ -54,11 +59,11 @@ class GeneticOptimize:
             slotSet.add(i.slot)
             weekSet.add(i.weekDay)
         count = 0
-        if len(roomSet) / Schedule.roomRange > 0.80:
+        if len(roomSet) / AdaptiveSchedule.roomRange > 0.80:
             count += 1
-        if len(slotSet) / Schedule.slotInDay > 0.80:
+        if len(slotSet) / AdaptiveSchedule.slotInDay > 0.80:
             count += 1
-        if len(weekSet) / Schedule.dayInWeek > 0.80:
+        if len(weekSet) / AdaptiveSchedule.dayInWeek > 0.80:
             count += 1
         if count == 3:
             return 1
@@ -112,7 +117,7 @@ class GeneticOptimize:
             #     fixCount += 1
 
             if self.checkIsBetter(entity) == 1:
-                print('find item,fitness score=' + str(schedule.fitness(entity)))
+                print('find item,fitness score=' + str(adaptive_schedule.fitness(entity)))
                 self.population.append(entity)
 
         # for i in range(self.popsize):
@@ -129,8 +134,8 @@ class GeneticOptimize:
 
     def initAllSpace(self):
 
-        for x in range(1, Schedule.dayInWeek+1):
-            for y in range(1, Schedule.slotInDay+1):
+        for x in range(1, AdaptiveSchedule.dayInWeek+1):
+            for y in range(1, AdaptiveSchedule.slotInDay+1):
                 key = (x, y)
                 self.spaceSet.add(key)
 
@@ -155,7 +160,7 @@ class GeneticOptimize:
     def dealConflict2(self, entity, conflictCount, usedSpace, space2Conflict):
 
         # 每一个冲突处理完毕后，需要重置可用列表，防止无解的占用了位置没有释放
-        for roomId in range(1, Schedule.roomRange + 1):
+        for roomId in range(1, AdaptiveSchedule.roomRange + 1):
             self.room2Space[roomId] = copy.deepcopy(self.spaceSet)
 
         for classId in self.classIdSet:
@@ -238,11 +243,11 @@ class GeneticOptimize:
         return True
 
     def printSplitEnd(self,part):
-        if GeneticOptimize.printConflictDetail == True:
+        if AdaptiveGeneticOptimize.printConflictDetail == True:
             print('==============endDealConflict--%s==================' %(part))
 
     def printSplitStart(self,part):
-        if GeneticOptimize.printConflictDetail == True:
+        if AdaptiveGeneticOptimize.printConflictDetail == True:
             print('==============startDealConflict--%s==================' %(part))
 
     def fixTeacherConflict(self, changeEntity, changeIndex, usedSpace):
@@ -345,7 +350,7 @@ class GeneticOptimize:
         roomId = oldRoomId
         exitRoomId = oldRoomId - 1
         if oldRoomId == 1:
-            exitRoomId = Schedule.roomRange
+            exitRoomId = AdaptiveSchedule.roomRange
         findAvailable = False
         while findAvailable == False:
             availableSpaceSet, newRoomId = self.findAvailableRoom(roomId, exitRoomId)
@@ -387,7 +392,7 @@ class GeneticOptimize:
                     #print('room时间槽位遍历完毕未找到可用位置，无解')
                     return False
                 else:
-                    if newRoomId + 1 > Schedule.roomRange:
+                    if newRoomId + 1 > AdaptiveSchedule.roomRange:
                         roomId = 1
                     else:
                         roomId = newRoomId + 1
@@ -399,7 +404,7 @@ class GeneticOptimize:
             if roomId!=exitRoomId and len(availableSpaceSet) <= 0:
                 # 该教室没有可用空间，更换教室
                 roomId += 1
-                if roomId > Schedule.roomRange:
+                if roomId > AdaptiveSchedule.roomRange:
                     roomId = 1
             else:
                 break
@@ -476,22 +481,32 @@ class GeneticOptimize:
             array.remove(item)
 
     def getAvailableRoom(self, roomId2FreeSpace, nowroomId, deep):
-        if deep == Schedule.roomRange:
+        if deep == AdaptiveSchedule.roomRange:
             # 没有任何一个教室有空间
             return -1
         array = roomId2FreeSpace[nowroomId]
         if len(array) > 0:
             return nowroomId
         else:
-            if nowroomId + 1 > Schedule.roomRange:
+            if nowroomId + 1 > AdaptiveSchedule.roomRange:
                 nowroomId = 1
             else:
                 nowroomId += 1
             return self.getAvailableRoom(roomId2FreeSpace, nowroomId, deep + 1)
 
-    ## 编译概率
-    def mutateprobFun(self, n):
-        return 1 / (2 * (1 + math.exp(4 * n / self.maxiter)))
+    ## 交叉概率
+    def crossoverProbFun(self, Fmax, Fmin, Fmean):
+        if Fmean<=Fmax/2:
+            return AdaptiveGeneticOptimize.Pw1-(AdaptiveGeneticOptimize.Pw1-AdaptiveGeneticOptimize.Pw2) * (Fmax/2-Fmean)/(Fmax/2-Fmin)
+        else:
+            return AdaptiveGeneticOptimize.Pw1
+
+    ## 变异概率
+    def mutateprobFun(self, f, Fmax):
+        if f >= Fmax/2:
+            return AdaptiveGeneticOptimize.Pk1 - 2*(AdaptiveGeneticOptimize.Pk1-AdaptiveGeneticOptimize.Pk2)*(f-Fmax)/Fmax
+        else:
+            return AdaptiveGeneticOptimize.Pk1
 
     ## 变异操作
     # def mutate(self, eiltePopulation, roomRange, index):
@@ -544,13 +559,13 @@ class GeneticOptimize:
 
             if pos == 0:
                 # p.roomId = self.addSub(p.roomId, operation, roomRange)
-                p.roomId = self.randomWithOut(Schedule.roomRange, p.roomId)
+                p.roomId = self.randomWithOut(AdaptiveSchedule.roomRange, p.roomId)
             if pos == 1:
                 # p.weekDay = self.addSub(p.weekDay, operation, Schedule.dayInWeek)
-                p.weekDay = self.randomWithOut(Schedule.dayInWeek, p.weekDay)
+                p.weekDay = self.randomWithOut(AdaptiveSchedule.dayInWeek, p.weekDay)
             if pos == 2:
                 # p.slot = self.addSub(p.slot, operation, Schedule.slotInDay)
-                p.slot = self.randomWithOut(Schedule.slotInDay, p.slot)
+                p.slot = self.randomWithOut(AdaptiveSchedule.slotInDay, p.slot)
 
 
         # mutateCount = 0
@@ -618,48 +633,6 @@ class GeneticOptimize:
         if type == 1:
             p1.roomId, p2.roomId = p2.roomId, p1.roomId
 
-
-        # if e1 == -1 or e2 == -1:
-        #     e1 = np.random.randint(0, self.popsize, 1)[0]
-        #     e2 = np.random.randint(0, self.popsize, 1)[0]
-        #     while e1==e2:
-        #         e2=np.random.randint(0, self.popsize, 1)[0]
-
-        # 交叉次数
-        # crossCount = 0
-
-        ## crossover field value
-        # while True:
-        #     ep1 = copy.deepcopy(eiltePopulation[e1])
-        #     ep2 = copy.deepcopy(eiltePopulation[e2])
-        #
-        #     # 交叉点位随机范围
-        #     pos = np.random.randint(0, len(ep1), 1)[0]
-        #     type = np.random.randint(0, 2, 1)[0]
-        #     index = 0
-        #     p1 = ep1[pos]
-        #     p2 = ep2[pos]
-        #     if type == 0:
-        #         p1.weekDay, p2.weekDay = p2.weekDay, p1.weekDay
-        #         p1.slot, p2.slot = p2.slot, p1.slot
-        #     if type == 1:
-        #         p1.roomId, p2.roomId = p2.roomId, p1.roomId
-        #     # for p1, p2 in zip(ep1, ep2):
-        #     #     if index < pos:
-        #     #         index += 1
-        #     #         continue
-        #     crossCount += 1
-        #
-        #     conflictCount1, conflict1, conflict2, conflict3 = conflict(ep1)
-        #     conflictCount2, conflict1, conflict2, conflict3 = conflict(ep2)
-        #
-        #
-        #     if (conflictCount1 > 0 or conflictCount2 > 0) and crossCount<Schedule.crossRetryMaxCount :
-        #         # 交叉后出现冲突，则重新选取交叉位点
-        #         continue
-        #     else:
-        #         break
-
         return [ep1, ep2]
 
     ## 演化
@@ -667,24 +640,35 @@ class GeneticOptimize:
         appearCount = 0
         maxFitness = 0
         bestSchedule = None
+
         for i in range(self.maxiter):
-            # eliteIndex记录了根据冲突和适应度排序后的结果，排第一的适应度最高
+            # eliteIndex记录了根据冲突和适应度排序后的结果，排第一的是冲突最少，适应度最高的
             eliteIndex, conflictList, fitnessList = schedule_cost(self.population, self.popsize)
+
             bestConflict = conflictList[0]
             bestFitness = fitnessList[0]
+
+            MyFitnessList = np.array(fitnessList)
+            Fmax = MyFitnessList.max()
+            Fmin = MyFitnessList.min()
+            Fmean = MyFitnessList.mean()
+
             print('Iter: {} | conflict: {} | bestFitness: {}'.format(i + 1, bestConflict, bestFitness))
-            ## 判断退出条件
-            if (i + 1 == self.maxiter):
+
+            # if (bestConflict == 0 and bestFitness == maxFitness and appearCount >= AdaptiveGeneticOptimize.maxAppearCount) or (
+            #         i + 1 == self.maxiter):
+            if i + 1 == self.maxiter:
                 # 结束，输出最优解
                 bestSchedule = self.population[0]
                 break
-            ## 更新计数器
+
             if bestConflict == 0:
                 if bestFitness > maxFitness:
                     maxFitness = bestFitness
                     appearCount = 1
                 elif bestFitness == maxFitness:
                     appearCount += 1
+
             self.population = [self.population[i] for i in eliteIndex]
             newPopulation = self.population
 
@@ -692,16 +676,14 @@ class GeneticOptimize:
             self.select(fitnessList, newPopulation)
 
             ## 交叉运算
-            self.crossover(newPopulation)
-
-            ## 变异运算 随机选取个体，选取位置进行变异
-            self.mutate(newPopulation)
+            self.crossover(newPopulation,Fmax,Fmin,Fmean)
 
             fixedPopulation = []
-            ## 冲突探测与处理
             for k in range(len(newPopulation)):
                 entity = newPopulation[k]
+
                 conflictCount, usedSpace, space2Conflict = conflict(entity)
+
                 if conflictCount > 0:
                     fixed = self.dealConflict2(entity, conflictCount, usedSpace, space2Conflict)
                     if fixed == True:
@@ -709,24 +691,44 @@ class GeneticOptimize:
                 else:
                     fixedPopulation.append(entity)
 
-            ## 更新种群
+            ## 变异运算 随机选取个体，选取位置进行变异
+            self.mutate(fixedPopulation)
+
+            fixedPopulation = []
+            for k in range(len(newPopulation)):
+                entity = newPopulation[k]
+
+                conflictCount, usedSpace, space2Conflict = conflict(entity)
+
+                if conflictCount > 0:
+                    fixed = self.dealConflict2(entity, conflictCount, usedSpace, space2Conflict)
+                    if fixed == True:
+                        fixedPopulation.append(entity)
+                else:
+                    fixedPopulation.append(entity)
+
             self.population = fixedPopulation
+
         return bestSchedule, maxFitness
 
     def mutate(self, newPopulation):
+
+        finessList=fitnessFun(newPopulation)
+        MyFitnessList = np.array(finessList)
+        Fmax = MyFitnessList.max()
         for i in range(len(newPopulation)):
             p = np.random.rand()
-            if p < self.mutateprobFun(i):
+            if p < self.mutateprobFun(MyFitnessList[i],Fmax):
                 newItem = self.mutateOp(newPopulation, i)
                 newPopulation.append(newItem)
 
-    def crossover(self, newPopulation):
+    def crossover(self, newPopulation, Fmax, Fmin, Fmean):
         # 洗牌
         np.random.shuffle(newPopulation)
         # 根据概率，如果命中，两两配对交叉
         for i in range(int(self.popsize / 2)):
             p = np.random.rand()
-            if p < self.crossprob:
+            if p < self.crossoverProbFun(Fmax, Fmin, Fmean):
                 newItem = self.crossoverOp(newPopulation, 2 * i, 2 * i + 1)
 
                 newPopulation.append(newItem[0])

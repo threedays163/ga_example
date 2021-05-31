@@ -6,6 +6,8 @@ from schedule import Schedule
 from genetic import GeneticOptimize
 from common_schedule import CommonSchedule
 from common_genetic import CommonGeneticOptimize
+from adaptive_schedule import  AdaptiveSchedule
+from adaptive_genetic import AdaptiveGeneticOptimize
 
 
 def vis(schedule):
@@ -91,6 +93,23 @@ def compareWithSameInit():
             = myGaCal(population, i, maxBestFitness2, totalFitness2, totalTime2)
     return totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2
 
+def compareAdaptiveGAWithSameInit():
+    totalFitness1 = 0.0
+    totalFitness2 = 0.0
+    maxBestFitness1 = 0.0
+    maxBestFitness2 = 0.0
+
+    totalTime1 = 0.0
+    totalTime2 = 0.0
+    for i in range(loopCount):
+        population, maxBestFitness1, totalFitness1, totalTime1 \
+            = AdaptiveGaCal(i, maxBestFitness1, totalFitness1,totalTime1)
+
+        maxBestFitness2, totalFitness2, totalTime2\
+            = myGaCal(population, i, maxBestFitness2, totalFitness2, totalTime2)
+    return totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2
+
+
 
 def myGaCal(population, i, maxBestFitness2, totalFitness2, totalTime2):
     print("改进后")
@@ -118,6 +137,24 @@ def CommonGaCal(i, maxBestFitness1, totalFitness1, totalTime1):
     pupulation = copy.deepcopy(commonGA.population)
     res, bestFitness1 = commonGA.evolution()
     print("改前适应值：" + str(bestFitness1))
+    totalFitness1 += bestFitness1
+    if bestFitness1 > maxBestFitness1:
+        maxBestFitness1 = bestFitness1
+    endTime1 = time.time()
+    wasteTime1 = endTime1 - startTime1
+    totalTime1 += wasteTime1
+    print("第" + str(i) + "次，1耗时：" + str(wasteTime1))
+    visualizationAll(res)
+    return pupulation, maxBestFitness1, totalFitness1, totalTime1
+
+def AdaptiveGaCal(i, maxBestFitness1, totalFitness1, totalTime1):
+    print("自适应GA")
+    startTime1 = time.time()
+    adaptiveGA = AdaptiveGeneticOptimize(popSize=popSize, mutprob=0.2, crossProb=0.9, maxiter=500)
+    adaptiveGA.init_population(schedules, CommonSchedule.roomRange)
+    pupulation = copy.deepcopy(adaptiveGA.population)
+    res, bestFitness1 = adaptiveGA.evolution()
+    print("自适应GA适应值：" + str(bestFitness1))
     totalFitness1 += bestFitness1
     if bestFitness1 > maxBestFitness1:
         maxBestFitness1 = bestFitness1
@@ -217,7 +254,7 @@ def init_data():
 
 if __name__ == '__main__':
 
-    popSize = 50
+    popSize = 5
     loopCount = 5
 
     schedules = []
@@ -230,8 +267,9 @@ if __name__ == '__main__':
     init_data()
 
     # totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2 = compareWithSameInit()
+    totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2 = compareAdaptiveGAWithSameInit()
 
-    totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2 = compare()
+    # totalFitness1, totalFitness2, maxBestFitness1, maxBestFitness2, totalTime1, totalTime2 = compare()
 
     print("改进前最大适应值：" + str(maxBestFitness1))
     print("改进后最大适应值：" + str(maxBestFitness2))
